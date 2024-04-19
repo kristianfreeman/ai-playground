@@ -1,5 +1,8 @@
 # AI Playground
 
+> [!WARNING]  
+> **This repo is in-progress.** I'll launch it officially soon!
+
 This is my example playground for working with Llama 3 in [Cloudflare Workers AI](https://ai.cloudflare.com). It might be interesting to other people - or it might not!
 
 It includes some of my most recent best practices for working with generative text AI models in a full-stack context. 
