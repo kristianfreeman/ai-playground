@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Kristian's Llama 3 Playground</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.10.2/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body>
+    <template id="app-template">
+      <div class="flex flex-col items-center justify-center h-screen w-3/4 mx-auto">
+        <div class="flex-1 mt-16 overflow-y-auto w-full space-y-4" id="chats">
+          <div class="chat chat-start" :class="{ hidden: !state.debug }">
+            <div class="chat-header">Debug Menu</div>
+            <div class="chat-bubble chat-bubble-accent">{{JSON.stringify(state)}}</div>
+          </div>
+
+          <div v-for="(item, index) in state.previousMessages" class="chat" :class="chatClass(index).container">
+            <div class="chat-header">{{index % 2 == 0 ? "Me" : "Llama 3"}}</div>
+            <div class="chat-bubble" :class="chatClass(index).content">{{item}}</div>
+          </div>
+
+          <div v-if="state.loading" class="flex space-x-4">
+            <span class="loading loading-spinner loading-md"></span>
+            <span>Loading...</span>
+          </div>
+        </div>
+
+        <form class="my-8 flex items-center space-x-4 w-full" @submit.prevent="submit">
+          <input
+            :disabled="state.loading"
+            class="input input-bordered w-full"
+            placeholder="Type here"
+            required
+            type="textarea"
+            v-model="state.content"
+          />
+          <span 
+            :title="state.debug ? 'Close Debug Menu' : 'Show Debug Menu'" 
+            @click="state.debug = !state.debug" 
+            class="cursor-pointer"
+          >
+            {{state.debug ? "🙈" : "🙊"}}
+          </span>
+        </form>
+      </div>
+    </template>
+    <div class="w-full text-center fixed top-0 pt-4">
+      <h1 class="font-bold">Kristian's Llama 3 Playground</h1>
+    </div>
+    <div id="app"></div>
+  </body>
+
+  <script type="module">
+    import { createApp, reactive } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+    import { stream } from 'https://cdn.jsdelivr.net/npm/fetch-event-stream@0.1.5/+esm';
+
+    const doneDoken = '[DONE]';
+
+    const state = reactive({
+      content: '',
+      debug: false,
+      loading: false,
+      previousMessages: [],
+      response: null,
+    });
+
+    const scrollToBottom = () => {
+      const chats = document.querySelector('#chats');
+      chats.scrollTop = chats.scrollHeight;
+    };
+
+    createApp({
+      template: '#app-template',
+      setup() {
+        return { state };
+      },
+      methods: {
+        chatClass(index) {
+          const even = index % 2 == 0;
+          return {
+            container: even ? 'chat-end' : 'chat-start',
+            content: even ? 'chat-bubble-primary' : 'chat-bubble-secondary',
+          };
+        },
+        async submit() {
+          event.preventDefault();
+
+          try {
+            state.loading = true;
+
+            const content = state.content;
+            state.previousMessages = [...state.previousMessages, content];
+            state.content = '';
+            state.response = '';
+
+            const events = await stream('/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content }),
+            });
+
+            for await (let ev of events) {
+              if (ev.data === doneToken) {
+                state.previousMessages = [...state.previousMessages, state.response];
+                scrollToBottom();
+                return;
+              }
+
+              const event = JSON.parse(ev.data);
+              const response = event.response.trim();
+              if (response.length) {
+                state.response += event.response;
+              }
+            }
+          } catch (err) {
+            state.previousMessages = [...state.previousMessages, 'Something went wrong.'];
+          } finally {
+            state.response = '';
+            state.loading = false;
+          }
+        },
+      },
+    }).mount('#app');
+  </script>
+</html>
