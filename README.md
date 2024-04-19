@@ -1,5 +1,7 @@
 # AI Playground
 
+![AI Playground](.github/ai-playground.png)
+
 > [!WARNING]  
 > **This repo is in-progress.** I'll launch it officially soon!
 
