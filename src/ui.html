@@ -56,7 +56,7 @@
     import { createApp, reactive } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
     import { stream } from 'https://cdn.jsdelivr.net/npm/fetch-event-stream@0.1.5/+esm';
 
-    const doneDoken = '[DONE]';
+    const doneToken = '[DONE]';
 
     const state = reactive({
       content: '',
@@ -115,6 +115,7 @@
               }
             }
           } catch (err) {
+            console.log(err)
             state.previousMessages = [...state.previousMessages, 'Something went wrong.'];
           } finally {
             state.response = '';
