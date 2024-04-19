@@ -1,4 +1,4 @@
-# Kristian's Llama 3 Playground
+# AI Playground
 
 This is my example playground for working with Llama 3 in [Cloudflare Workers AI](https://ai.cloudflare.com). It might be interesting to other people - or it might not!
 

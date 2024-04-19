@@ -1,4 +1,4 @@
-name = "llama3-workers-ai"
+name = "ai-playground"
 main = "src/worker.js"
 compatibility_date = "2024-04-18"
 
