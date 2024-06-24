@@ -14,23 +14,27 @@
     <meta property="twitter:title" content="AI Playground" />
     <meta property="twitter:image" content="https://cdn.jsdelivr.net/gh/kristianfreeman/ai-playground@main/.github/ai-playground.png" />
   </head>
-  <body>
+
+  <body class="bg-base-50">
     <template id="app-template">
       <div class="flex flex-col items-center justify-center h-screen w-3/4 mx-auto">
         <div class="flex-1 mt-16 overflow-y-auto w-full space-y-4" id="chats">
-          <div class="chat chat-start" :class="{ hidden: !state.debug }">
-            <div class="chat-header">Debug Menu</div>
-            <div class="chat-bubble chat-bubble-accent">{{JSON.stringify(state)}}</div>
-          </div>
+          <div v-for="(item, index) in state.previousMessages" 
+            :class="chatClass(item).container"
+          >
+            <div class="stat" v-if="item.role === 'tool'">
+              <div class="stat-title">🔧 {{item.tool}}</div>
+              <div class="stat-value text-base">{{item.result}}</div>
+              <div class="stat-desc">Generated using <a href="https://developers.cloudflare.com/workers-ai/configuration/function-calling/" target="_blank">Function Calling</a>, results may vary.</div>
+            </div>
 
-          <div v-for="(item, index) in state.previousMessages" class="chat" :class="chatClass(index).container">
-            <div class="chat-header">{{index % 2 == 0 ? "Me" : "Llama 3"}}</div>
-            <div class="chat-bubble" :class="chatClass(index).content">{{item}}</div>
+            <div class="chat-header" v-if="item.role !== 'tool'">{{item.role == "user" ? "Me" : "AI"}}</div>
+            <div :class="chatClass(item).content">{{item.content}}</div>
           </div>
 
           <div v-if="state.loading" class="flex space-x-4">
             <span class="loading loading-spinner loading-md"></span>
-            <span>Loading...</span>
+            <span>Thinking...</span>
           </div>
         </div>
 
@@ -43,13 +47,6 @@
             type="textarea"
             v-model="state.content"
           />
-          <span 
-            :title="state.debug ? 'Close Debug Menu' : 'Show Debug Menu'" 
-            @click="state.debug = !state.debug" 
-            class="cursor-pointer"
-          >
-            {{state.debug ? "🙈" : "🙊"}}
-          </span>
         </form>
       </div>
     </template>
@@ -61,16 +58,11 @@
 
   <script type="module">
     import { createApp, reactive } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
-    import { stream } from 'https://cdn.jsdelivr.net/npm/fetch-event-stream@0.1.5/+esm';
-
-    const doneToken = '[DONE]';
 
     const state = reactive({
       content: '',
-      debug: false,
       loading: false,
       previousMessages: [],
-      response: null,
     });
 
     const scrollToBottom = () => {
@@ -84,12 +76,24 @@
         return { state };
       },
       methods: {
-        chatClass(index) {
-          const even = index % 2 == 0;
-          return {
-            container: even ? 'chat-end' : 'chat-start',
-            content: even ? 'chat-bubble-primary' : 'chat-bubble-secondary',
-          };
+        chatClass(item) {
+          switch (item.role) {
+            case 'assistant':
+              return {
+                container: 'chat chat-start',
+                content: 'chat-bubble chat-bubble-secondary',
+              };
+            case 'tool':
+              return {
+                container: 'stats shadow',
+                content: 'stat-value',
+              };
+            case 'user':
+              return {
+                container: 'chat chat-end',
+                content: 'chat-bubble chat-bubble-primary'
+              };
+          }
         },
         async submit() {
           event.preventDefault();
@@ -98,36 +102,30 @@
             state.loading = true;
 
             const content = state.content;
-            state.previousMessages = [...state.previousMessages, content];
+            state.previousMessages = [...state.previousMessages, { role: 'user', content }];
             state.content = '';
-            state.response = '';
 
-            const events = await stream('/', {
+            const events = await fetch('/', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ content }),
             });
 
-            for await (let ev of events) {
-              if (ev.data === doneToken) {
-                state.previousMessages = [...state.previousMessages, state.response];
-                scrollToBottom();
-                return;
-              }
-
-              const event = JSON.parse(ev.data);
-              const response = event.response.trim();
-              if (response.length) {
-                state.response += event.response;
-              }
+            const { messages } = await events.json()
+            if (messages.length) {
+              state.previousMessages = [
+                ...state.previousMessages,
+                ...messages
+              ]
             }
           } catch (err) {
             console.log(err)
-            state.previousMessages = [...state.previousMessages, 'Something went wrong.'];
+            state.previousMessages = [...state.previousMessages, { role: 'assistant', content: "Something went wrong." }];
           } finally {
-            state.response = '';
             state.loading = false;
           }
+
+          console.log(state)
         },
       },
     }).mount('#app');
