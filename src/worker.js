@@ -1,3 +1,4 @@
+import { runWithTools } from '@cloudflare/ai-utils';
 import { faker } from '@faker-js/faker';
 import { Hono } from "hono";
 import ui from "./ui.html";
@@ -19,55 +20,32 @@ app.post("/", async (c) => {
       { role: "user", content },
     ];
 
-    const tools = [{
-      name: "randomString",
-      description: "Generate a random string",
-    }]
-
-    const toolCallResp = await c.env.AI.run(config.model, {
-      messages,
-      tools,
-    });
-
-    if (toolCallResp.tool_calls) {
-      for (const tool_call of toolCallResp.tool_calls) {
-        switch (tool_call.name) {
-          case "randomString":
-            const string = faker.string.alpha(10)
-            messages.push({ 
-              role: 'system', 
-              content: `The random string is ${string}` 
-            })
-
-            let result = await c.env.AI.run(config.model, { messages });
-            messages.unshift()
-
-            messages.push({ 
-              role: 'tool', 
-              tool: tool_call.name,
-              result: string
-            })
-
-            messages.push({ 
-              role: 'assistant', 
-              content: result.response
-            })
-        }
+    const result = await runWithTools(
+      c.env.AI,
+      config.model,
+      {
+        messages,
+        tools: [
+          {
+            name: "randomString",
+            description: "Generate a random string",
+            function: async () => {
+              return faker.string.alpha(10)
+            }
+          }
+        ]
+      },
+      {
+        strictValidation: true,
+        maxRecursiveToolRuns: 1,
       }
-    } else {
-      // No tools used, run "tool-less"
-      let result = await c.env.AI.run(config.model, {
-	    	messages,
-	    });
+    );
 
-      messages.push({ role: 'assistant', content: result.response })
-    }
+    messages.push({ role: 'assistant', content: result.response })
 
-    const filteredMessages = messages.filter(m => 
+    const filteredMessages = messages.filter(m =>
       ['assistant', 'tool'].includes(m.role)
     )
-
-    console.log(filteredMessages)
 
     return c.json({ messages: filteredMessages })
   } catch (err) {
