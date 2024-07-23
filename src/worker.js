@@ -5,7 +5,7 @@ import ui from "./ui.html";
 const app = new Hono();
 
 const config = {
-  model: "@hf/nousresearch/hermes-2-pro-mistral-7b"
+  model: "@cf/meta/llama-3.1-8b-instruct"
 }
 
 app.get("/", (c) => c.html(ui));
